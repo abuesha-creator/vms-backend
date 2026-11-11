@@ -6,6 +6,7 @@ import com.starkgroup.vms.dto.vehicle.VehicleResponse;
 import com.starkgroup.vms.dto.ApiResponse;
 import com.starkgroup.vms.service.VehicleService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,7 +28,7 @@ public class VehicleController {
     }
 
     // -------------------------------------------------------------------------
-    // POST /api/v1/vehicles  →  201 Created
+    // POST /api/v1/vehicles → 201 Created
     // -------------------------------------------------------------------------
 
     @PostMapping
@@ -41,7 +42,7 @@ public class VehicleController {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/v1/vehicles  →  200 OK
+    // GET /api/v1/vehicles → 200 OK
     // -------------------------------------------------------------------------
 
     @GetMapping
@@ -51,7 +52,26 @@ public class VehicleController {
     }
 
     // -------------------------------------------------------------------------
-    // GET /api/v1/vehicles/{id}  →  200 OK
+    // GET /api/v1/vehicles/paged → 200 OK (Search, Filter, Sort, Pagination)
+    // -------------------------------------------------------------------------
+
+    @GetMapping("/paged")
+    public ResponseEntity<ApiResponse<Page<VehicleResponse>>> getPaged(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String direction) {
+
+        Page<VehicleResponse> pagedVehicles = vehicleService.getVehiclesPaged(
+                search, status, type, page, size, sortBy, direction);
+        return ResponseEntity.ok(ApiResponse.ok("Vehicles retrieved successfully", pagedVehicles));
+    }
+
+    // -------------------------------------------------------------------------
+    // GET /api/v1/vehicles/{id} → 200 OK
     // -------------------------------------------------------------------------
 
     @GetMapping("/{id}")
@@ -61,7 +81,7 @@ public class VehicleController {
     }
 
     // -------------------------------------------------------------------------
-    // PUT /api/v1/vehicles/{id}  →  200 OK
+    // PUT /api/v1/vehicles/{id} → 200 OK
     // -------------------------------------------------------------------------
 
     @PutMapping("/{id}")
@@ -74,7 +94,7 @@ public class VehicleController {
     }
 
     // -------------------------------------------------------------------------
-    // DELETE /api/v1/vehicles/{id}  →  204 No Content
+    // DELETE /api/v1/vehicles/{id} → 204 No Content
     // -------------------------------------------------------------------------
 
     @DeleteMapping("/{id}")

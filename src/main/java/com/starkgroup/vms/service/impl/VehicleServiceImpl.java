@@ -8,24 +8,32 @@ import com.starkgroup.vms.exception.DuplicateVehicleNumberException;
 import com.starkgroup.vms.exception.ResourceNotFoundException;
 import com.starkgroup.vms.repository.VehicleRepository;
 import com.starkgroup.vms.service.VehicleService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Implementation of {@link VehicleService}.
- * All business rules are enforced here; persistence is delegated to {@link VehicleRepository}.
- */
 @Service
 @Transactional
 public class VehicleServiceImpl implements VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private static final List<String> VALID_STATUSES = List.of("ACTIVE", "INACTIVE", "MAINTENANCE");
 
     public VehicleServiceImpl(VehicleRepository vehicleRepository) {
         this.vehicleRepository = vehicleRepository;
+    }
+
+    private String normalizeAndValidateStatus(String status) {
+        if (status == null || !VALID_STATUSES.contains(status.trim().toUpperCase())) {
+            throw new IllegalArgumentException("Status must be ACTIVE, INACTIVE, or MAINTENANCE");
+        }
+        return status.trim().toUpperCase();
     }
 
     // -------------------------------------------------------------------------
@@ -40,13 +48,15 @@ public class VehicleServiceImpl implements VehicleService {
             throw new DuplicateVehicleNumberException(normalizedNumber);
         }
 
+        String validStatus = normalizeAndValidateStatus(request.getStatus());
+
         Vehicle vehicle = new Vehicle();
         vehicle.setVehicleNumber(normalizedNumber);
         vehicle.setCompany(request.getCompany());
         vehicle.setType(request.getType());
         vehicle.setBrand(request.getBrand());
         vehicle.setModel(request.getModel());
-        vehicle.setStatus(request.getStatus());
+        vehicle.setStatus(validStatus);
 
         Vehicle saved = vehicleRepository.save(vehicle);
         return VehicleResponse.fromEntity(saved);
@@ -72,6 +82,16 @@ public class VehicleServiceImpl implements VehicleService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Page<VehicleResponse> getVehiclesPaged(String search, String status, String type, int page, int size,
+            String sortBy, String direction) {
+        Sort sort = direction.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return vehicleRepository.searchAndFilterVehicles(search, status, type, pageable)
+                .map(VehicleResponse::fromEntity);
+    }
+
     // -------------------------------------------------------------------------
     // Update
     // -------------------------------------------------------------------------
@@ -79,12 +99,13 @@ public class VehicleServiceImpl implements VehicleService {
     @Override
     public VehicleResponse update(Long id, UpdateVehicleRequest request) {
         Vehicle vehicle = findByIdOrThrow(id);
+        String validStatus = normalizeAndValidateStatus(request.getStatus());
 
         vehicle.setCompany(request.getCompany());
         vehicle.setType(request.getType());
         vehicle.setBrand(request.getBrand());
         vehicle.setModel(request.getModel());
-        vehicle.setStatus(request.getStatus());
+        vehicle.setStatus(validStatus);
 
         Vehicle saved = vehicleRepository.save(vehicle);
         return VehicleResponse.fromEntity(saved);
@@ -110,4 +131,3 @@ public class VehicleServiceImpl implements VehicleService {
                         "Vehicle with id " + id + " not found"));
     }
 }
-
